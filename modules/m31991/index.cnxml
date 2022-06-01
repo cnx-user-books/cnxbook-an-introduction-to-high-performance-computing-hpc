@@ -1,0 +1,195 @@
+<document xmlns="http://cnx.rice.edu/cnxml" xmlns:md="http://cnx.rice.edu/mdml">
+
+<title>Editing, Compiling and Submitting Jobs on Ela</title>
+<metadata>
+  <md:content-id>m31991</md:content-id><md:title>Editing, Compiling and Submitting Jobs on Ela</md:title>
+  <md:abstract>In this module you will learn the fundamentals of editing, compiling and submitting codes on the CSCS Gele system.</md:abstract>
+  <md:uuid>351d6508-fe98-41f5-b8e6-947ab68dd2e3</md:uuid>
+</metadata>
+
+<content>
+  <section id="eip-954"><title>Introduction</title><para id="eip-746">For this tutorial you will be using the <term target-id="Ela">Ela</term> front-end system for editing, compiling and running your codes. Your executables will be submitted on <term target-id="Gele">Gele</term> which is the test system for CSCS's flagship machine <term target-id="Rosa">Monte Rosa</term>. <newline count="2"/>Please <emphasis>complete</emphasis> this section before attempting the remaining exercises. If you require any assistance, please do not hesitate to contact the available support staff.</para>
+</section>
+<section id="eip-234"><title>Logging into Ela</title><para id="eip-362">From your local system, you can log into <emphasis>Ela</emphasis> (using your supplied <emphasis>username</emphasis> and <emphasis>password</emphasis>) with the following commands:<newline/></para>
+<code id="eip-441" display="block"><title>Logging on to the Front-End System</title>
+ssh -X username@ela.cscs.ch</code><para id="eip-27">When you log into the front-end node <emphasis>Ela</emphasis>, you need to set up your <term target-id="Environment">programming environment</term> as follows:<newline/></para><code id="eip-860" display="block"><title>Setting Your Programming Environment </title>
+module load gele
+module load PrgEnv-cray
+module load pbs</code><note id="eip-758" type="aside"><label>Modules Tip</label>Loading <term target-id="module">modules</term> allows the user to flexibly customize their programming environment and system software within their session. In the commands above, we have selected the mandatory system software for the Gele system and the Cray Programming Environment. For managing the submission and scheduling of jobs on the compute nodes of Gele, we have selected the PBS batch queuing system (more about this later). </note><note id="eip-181" type="tip"><label>Module Information</label><newline count="2"/>To view the available modules on the system use the command:
+<newline count="2"/>
+<emphasis>module avail</emphasis>
+<newline count="2"/>
+To view the currently loaded modules, use the command:
+<newline count="2"/>
+<emphasis>module list</emphasis></note></section><section id="eip-376"><title>Editing Files on Ela</title><para id="eip-120">
+On Ela you can use either the <term target-id="Emacs">emacs</term> or <term target-id="Vi">vi</term> editors to modify source code or job submission scripts. To invoke the editors, use the following commands:<newline/> 
+</para><code id="eip-975" display="block"><title>Invoking Emacs (with GUI)</title>
+emacs foo.f90</code><code id="eip-407" display="block"><title>Invoking Emacs (without GUI)</title>
+emacs -nw foo.f90</code><code id="eip-172" display="block"><title>Invoking Vi</title>
+vi foo.f90</code></section><section id="eip-501"><title>Compiling Source Codes on Ela</title><para id="eip-864">
+To compile source codes on Ela, please use one of the available <term target-id="wrapper">compiler wrappers</term>.<newline/>
+</para><code id="eip-249" display="block"><title>The Fortran Compiler Wrapper</title>
+ftn -o foo foo.f90 </code><code id="eip-221" display="block"><title>The C and C++ Compiler Wrappers</title>
+cc -o foo foo.c
+CC -o foo foo.cpp</code><note id="eip-177" type="tip"><label>Compilers Tip</label>For more information on using the compiler wrappers and adding compiler flags for <term target-id="debug">debugging</term> and <term target-id="optimization">optimization</term>, please consult the respective man pages on Ela e.g.
+<newline count="2"/>
+man ftn
+<newline/>
+man cc
+<newline/>
+man CC</note></section><section id="eip-225"><title>Submitting Jobs to Gele</title><para id="eip-168">Codes are executed by submitting a <term target-id="job">job script</term> to a <term target-id="batch">batch submission queue</term> which in turn schedules the jobs to run on the compute nodes of Gele. To submit a job to Gele, please use the following submission script and submissions commands.<newline/>
+</para><code id="eip-22" display="block"><title>Sample Batch Submission Script</title>
+#! /bin/bash
+#PBS -l mppwidth=8
+#PBS -l walltime=00:10:00
+#PBS -V
+
+set -ex
+
+cd $PBS_O_WORKDIR
+
+aprun -n 8 ./foo.exe
+
+exit</code><para id="eip-915">In this script we request 8 parallel tasks (<term target-id="mppwidth">mppwidth</term>=8) for a maximum duration of 10 minutes (<term target-id="walltime">walltime</term>=00:10:00). We ensure that our environment settings are exported to the compute nodes for execution (<emphasis>-V</emphasis>) and that our execution command is invoked within the same directory as that which the job script was submitted in.</para><note id="eip-979" type="tip"><label>Batch Script Tip</label>The $PBS_O_WORKDIR environment variable always contains the path to the submission directory for the batch script.</note><para id="eip-554">To invoke an instance of the executable on the compute nodes, you are required to use the <term target-id="aprun">aprun</term> command. You can run multiple instances of the same executable across multiple cores by including the <emphasis>-n</emphasis> parameter. In the sample batch script above, we have requested that our <emphasis>foo</emphasis> executable be duplicated on all 8 cores requested within the batch script resources.</para><note id="eip-132" type="important">Please ensure that your <emphasis>aprun</emphasis> command uses all the resources requested by the <emphasis>mppwidth</emphasis> parameter, otherwise valuable resources will be wasted.</note><para id="eip-300">You can modify most of the above settings if required. Please refer to the man pages (<emphasis>man qsub</emphasis> and <emphasis>man aprun</emphasis>) for further information.</para><para id="eip-740">To submit your job script to the batch queuing system use the following command:<newline/></para><code id="eip-519" display="block"><title>Submit Job Script to Queue</title>
+qsub script</code><note id="eip-107">In this example the job script is named <emphasis>script</emphasis></note><para id="eip-129">When you submit your script successfully, the batch queuing system will issue you with a unique <emphasis>jobid</emphasis> for your submitted job. You can view the queuing and running status of your job by using the following commands:<newline/></para><code id="eip-189" display="block"><title>Viewing Jobs by Job ID</title>
+qstat jobid</code><code id="eip-835" display="block"><title>Viewing Multiple Jobs by Username</title>
+qstat -u username</code><para id="eip-372">After termination of your job, you will receive stdout (standard output) and stderr (standard error) logs to your submission directory. These logs are suffixed with the id of your submitted job. Please review these logs carefully to determine whether you had successful or unsuccessful termination of your executable.</para></section><section id="eip-140"><title>Practical Exercises</title><para id="eip-998">You are now in a position to attempt the "hands-on" practicals that complement the presentations. A number of practical exercises are included in this tutorial covering:
+</para><list id="eip-878" list-type="enumerated" number-style="arabic"><item>Compilation and Submission of a Simple Code</item>
+<item>Experimentation with Compiler Optimization Flags and Timing Routines</item>
+<item>Basic MPI</item>
+<item>Basic OpenMP</item></list><section id="eip-468"><title>Obtaining the Exercise Sources </title><para id="eip-437">Before attempting the practicals you should copy across the exercise source templates to your home directory. To do this complete the following instructions:
+</para><list id="eip-613" list-type="enumerated" number-style="arabic" class="stepwise"><item>cp ~tstitt/LinkSceem/Practicals.tgz ./</item>
+<item>tar -zxvf Practicals.tgz</item></list></section><note id="eip-143" type="tip">Please feel free to attempt the practicals in any order depending on your preferences and level of experience.</note><note id="eip-926">If you need any assistance with the exercises, please don't hesitate to contact the available support staff who will be glad to help with your problem.</note></section>
+
+</content>
+
+<glossary>
+
+<definition id="batch">
+<term>Batch Queue</term>
+<meaning id="fs-id17477624"><para id="fs-id17477625">
+A job queue maintained by the scheduler software for determining the order in which jobs are executed based on user priority, estimated execution time and available resources.
+</para>
+</meaning>
+</definition>
+
+<definition id="wrapper">
+<term>Compiler Wrapper</term>
+<meaning id="fs-id3697270"><para id="fs-id1171103292453">
+A compiler wrapper is a script that invokes the low-level compiler command with the required link libraries for a specific computing system and message-passing framework. Typically standard scientific and vendor-specific libraries are also included in the wrapper script.
+</para>
+</meaning>
+</definition>
+
+<definition id="debug">
+<term>Debugging</term>
+<meaning id="fs-id7577395"><para id="fs-id14495054">
+The art of identifying and removing compile-time and runtime errors from a code.
+</para>
+</meaning>
+</definition>
+
+<definition id="Emacs">
+<term>Emacs</term>
+<meaning id="fs-id9833429"><para id="fs-id9833505">
+Emacs is a feature-rich editor that has been in development since the mid-70s.<newline count="2"/>
+Please take a look at the <link url="http://www.gnu.org/software/emacs/tour/" window="new">emacs tutorial</link> for more information on using the editor.
+</para>
+</meaning>
+</definition>
+
+<definition id="Ela">
+<term>Ela</term>
+<meaning id="fs-id12280122"><para id="fs-id12280124">
+Ela is a 16 core front-end node which is used to edit and compile source code and submit jobs for execution on the compute nodes of Monte Rosa.
+</para>
+</meaning>
+</definition>
+
+<definition id="Gele">
+<term>Gele</term>
+<meaning id="fs-id23323010"><para id="fs-id22439904">
+Gele is a 76 node dual-core system. It is the test system for the CSCS flagship machine Monte Rosa.
+</para>
+</meaning>
+</definition>
+
+<definition id="job">
+<term>Job Script</term>
+<meaning id="fs-id16890105"><para id="fs-id16890106">
+A script which describes the command line execution of an executable along with the core, memory and time resources required by the calculation.
+</para>
+</meaning>
+</definition>
+
+<definition id="module">
+<term>Module</term>
+<meaning id="fs-id5783311"><para id="fs-id1168419762910">
+A script the configures the search paths and link commands for a given software package or library.
+</para>
+</meaning>
+</definition>
+
+<definition id="mppwidth">
+<term>mppwidth</term>
+<meaning id="fs-id9470370"><para id="fs-id8745054">
+The total number of cores requested by the user for the completion of the job.
+</para>
+</meaning>
+</definition>
+
+<definition id="optimization">
+<term>Optimization</term>
+<meaning id="fs-id14705336"><para id="fs-id14496489">
+The art of improving the memory performance and runtime performance of an executing code.
+</para>
+</meaning>
+</definition>
+
+<definition id="Environment">
+<term>Programming Environment</term>
+<meaning id="fs-id1169498898495"><para id="fs-id1169496075555">
+The Programming Environment is the collection of compiler and pre-built libraries that are specific to an individual compiler suite.
+</para>
+</meaning>
+</definition>
+
+<definition id="Rosa">
+<term>Monte Rosa</term>
+<meaning id="fs-id1165454875075"><para id="fs-id1165452739479">
+Monte Rosa is a Cray XT5 supercomputer with a peak performance of 140 TeraFlop/s. Its current specification is:
+<newline/>
+<list id="fs-id8457981" list-type="enumerated" number-style="arabic"><item>3688 AMD quad core Opteron @ 2.4 GHz</item>
+<item>29.5 TB DDR2 RAM</item>
+<item>290 TB Disk</item>
+<item>9.6 GB/s interconnect bandwidth</item>
+</list>
+<figure id="RosaPhoto">
+<media id="RosaPhotoid" alt="Image of Monte Rosa">
+      <image mime-type="image/png" src="../../media/RosaSmall.png"/>
+</media>
+<caption>Monte Rosa</caption></figure>
+</para>
+</meaning>
+</definition>
+
+<definition id="Vi">
+<term>Vi</term>
+<meaning id="fs-id5270612"><para id="fs-id8744578">
+Vi is a family of screen-oriented text editors which has been developed since 1976.<newline count="2"/>
+Please take a look at the <link url="http://www.unix-manuals.com/tutorials/vi/vi-in-10-1.html" window="new">Vi tutorial</link> for more information on using the editor.
+</para>
+</meaning>
+</definition>
+
+<definition id="walltime">
+<term>walltime</term>
+<meaning id="fs-id12550624"><para id="fs-id12562998">
+The total real time for completing a task. In a batch script, it refers to the maximum wall-clock time required by the job.
+</para>
+</meaning>
+</definition>
+
+</glossary>
+
+</document>

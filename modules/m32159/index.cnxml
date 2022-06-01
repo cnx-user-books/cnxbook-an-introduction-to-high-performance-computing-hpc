@@ -1,0 +1,455 @@
+<document xmlns="http://cnx.rice.edu/cnxml" xmlns:md="http://cnx.rice.edu/mdml">
+
+<title>Practical 2 - Compiler Optimizations and Timing Routines</title>
+<metadata>
+  <md:content-id>m32159</md:content-id><md:title>Practical 2 - Compiler Optimizations and Timing Routines</md:title>
+  <md:abstract>In this module you will gain some insight into the effect of Cray compiler optimization options, as well as hand-tuning optimizations, on the execution performance of a simple scientific kernel. You will also discover different techniques for timing the runtime performance of a complete code, or regions of the code.</md:abstract>
+  <md:uuid>2410c436-8d31-47e9-9fae-a6d81300f6c0</md:uuid>
+</metadata>
+
+<content>
+
+<section id="eip-954"><title>Introduction</title><para id="eip-746">In this practical you will experiment with the optimization flags on the Cray compiler, to observe their effect on the runtime performance of a simple scientific kernel. Furthermore, you will be given the opportunity to perform some "hand-tuning" on the source code. You will also be introduced to methods for timing the runtime performance of your complete source code, or individual segments of it. If you require any assistance, please do not hesitate to contact the available support staff.</para>
+
+<section id="eip-965"><title>Objectives</title><para id="eip-434">The objectives of this practical are to gain experience in:
+</para><list id="eip-365" list-type="enumerated" number-style="lower-roman"><item>applying compiler optimization flags and observing their effect</item>
+<item>applying "hand-tuned" optimizations and observing their effect</item>
+<item>timing the runtime performance of complete codes and individual instruction blocks</item></list></section>
+</section>
+
+<section id="eip-8"><title>Timing</title>
+
+<para id="eip-273">Calculating the time your code requires to execute is beneficial for comparing runtime performance between various code modifications and/or the application of <term target-id="optimization">compiler optimization</term> flags.</para><section id="eip-777"><title>Timing Complete Program Execution</title><para id="eip-964">The elapsed <term target-id="realtime">real time</term> (wallclock) of an executing program can be obtained at the command line using the <emphasis>time</emphasis> utility.</para><example id="eip-611"><title>Invoking The time Utility</title><para id="eip-287"><code>&gt; time app</code><newline/>
+<code>real	0m4.314s<newline/>
+user	0m3.950s<newline/>
+sys	0m0.020s
+</code></para></example><para id="eip-460">The <emphasis>time</emphasis> utility returns 3 timing statistics:</para><table id="eip-848" summary="The statistics of the time utility.">
+<tgroup cols="2"><tbody>
+  <row>
+    <entry>real</entry>
+    <entry>the elapsed real time between invocation and termination</entry>
+  </row>
+  <row>
+    <entry>user</entry>
+    <entry>the amount of CPU time used by the user's program</entry>
+  </row>
+  <row>
+    <entry>sys</entry>
+    <entry>the amount of CPU time used by the system in support of the user's program</entry>
+  </row>
+</tbody>
+
+
+
+
+
+
+
+</tgroup><caption>Statistics Returned By The 'time' Utility</caption>
+</table><note id="eip-906">Typically the <emphasis>real</emphasis> time and <emphasis>user+sys</emphasis> time are the same. In some circumstances they may be unequal due to the effect of other running user programs and/or excessive disk usage. </note><para id="eip-740">Frequently it is useful to time specific regions of your code. This may be because you want to identify particular performance <term target-id="hotspot">hotspots</term> in your code, or you wish to time a specific <term target-id="kernel">computational kernel</term>. Both C and Fortran90 provide routines for recording the execution time of code blocks within your source. </para></section>
+
+<section id="eip-893"><title>Timing Code Regions in Fortran90</title><para id="eip-442"><title>Fortran Language Timers</title>The Fortran90 language provides two portable timing routines; <emphasis>system_clock()</emphasis> and <emphasis>cpu_time()</emphasis>.
+</para>
+
+<example id="fs-id1172453506354"><title>system_clock()</title><para id="eip-550">The <emphasis>system_clock()</emphasis> routine returns the number of seconds from 00:00 Coordinated Universal Time (CUT) on 1 JAN 1970. To get the elapsed time, you must call <emphasis>system_clock()</emphasis> twice, and subtract the starting time value from the ending time value.
+<note id="eip-id8008698" type="important">To convert from the tick-based measurement to seconds, you need to divide by the clock rate used by the timer.</note>
+</para><code id="fs-id18309718" display="block">integer :: t1, t2, rate
+
+call system_clock(count=t1, count_rate=rate)
+
+! ...SOME HEAVY COMPUTATION...
+
+call system_clock(count=t2)
+
+print *, "The elapsed time for the work is ",real(t2-t1)/real(rate)
+</code></example>
+
+<example id="fs-id1172446720523"><title>cpu_time()</title><para id="fs-id44931477">The <emphasis>cpu_time()</emphasis> routine returns the processor time taken by the process from the start of the program. The time measured only accounts for the amount of time that the program is actually running, and not the time that a program is suspended or waiting. 
+</para><code id="fs-id42414298" display="block">real :: t1, t2
+
+call cpu_time(t1)
+
+! ...SOME HEAVY COMPUTATION...
+
+call cpu_time(2)
+
+print *, "The elapsed time for the work is ",(t2-t1)
+</code></example><para id="eip-861"><title>MPI Timing</title>To obtain the wallclock time for an individual MPI process, you can use the <emphasis>mpi_wtime()</emphasis> routine. This routine returns a double precision number of seconds, representing elapsed wall-clock time since an event in the past.</para><example id="fs-id1172449492529"><title>mpi_wtime()</title><code id="fs-id1172446655161" display="block">DOUBLE PRECISION :: start, end
+
+start = MPI_Wtime()
+ 
+! ...SOME HEAVY COMPUTATION...
+ 
+end   = MPI_Wtime()
+
+print *,'That took ',(end-start),' seconds'
+
+</code></example><note id="eip-487" type="tip"><label>OpenMP Tip</label>In OpenMP codes you can can time individual threads with <term target-id="openmpWtime">omp_get_wtime()</term>.
+</note>
+</section>
+
+<section id="fs-id8674090"><title>Timing Code Regions in C</title><para id="fs-id2335720"><title>C Language Timers</title>The C language provides the portable timing routine <emphasis>clock()</emphasis>.
+</para>
+
+<example id="fs-id1167713101273"><title>clock()</title><para id="fs-id5767108">Like the Fortran90 <emphasis>system_clock()</emphasis> routine, the C <emphasis>clock()</emphasis> routine is tick-based and returns the number of clock ticks elapsed since the program was launched.
+
+<note id="fs-id5689379" type="important">To convert from the tick-based measurement to seconds, you need to divide the elapsed ticks by the macro constant expression <emphasis>CLOCKS_PER_SEC</emphasis>.</note>
+</para><code id="fs-id1167717338867" display="block">#include &lt;stdio.h&gt;
+#include &lt;time.h&gt;
+
+int main(void)
+{
+  clock_t t1,t2;
+  double elapsed;
+
+  t1=clock();
+
+  // SOME HEAVY COMPUTATION
+
+  t2=clock();
+  elapsed=t2-t1;
+
+  printf("The elapsed time for the work is %f",elapsed/CLOCKS_PER_SEC);
+  return 0;
+}</code></example>
+
+<para id="fs-id1167713622781"><title>MPI Timing</title>Like Fortran90 codes, you can obtain the wallclock time for an individual MPI process, using the <emphasis>MPI_Wtime()</emphasis> routine. This routine returns a double precision number of seconds, representing elapsed wall-clock time since an event in the past.</para><example id="fs-id5505429"><title>mpi_wtime()</title><code id="fs-id4921122" display="block">double t1, t2;
+
+t1 = MPI_Wtime();
+
+// SOME HEAVY CALCULATIONS
+
+t2 = MPI_Wtime();
+
+printf("MPI_Wtime measured an elapsed time of: %1.2f\n", t2-t1);
+fflush(stdout);</code></example><note id="fs-id1167713845835" type="tip"><label>OpenMP Tip</label>Also like Fortran90, C-based OpenMP codes can be timed with <emphasis>omp_get_wtime()</emphasis>.
+</note>
+</section>
+</section>
+
+<section id="eip-441"><title>The "Naïve" Matrix Multiplication Algorithm</title><para id="eip-138">Matrix multiplication is a basic building block in many scientific computations; and since it is an O(n<sup>3</sup>) algorithm, these codes often spend a lot of their time in matrix multiplication.</para><para id="eip-308">The most naïve code to perform matrix multiplication is short, sweet, simple and very very slow. The <emphasis>naïve</emphasis> matrix multiply algorithm is highlighted in Figure 1.</para>
+<figure id="matrixMultiply"><media id="matmulPNG" alt="Matrix-Multiply Algorithm">
+    <image height="200" mime-type="image/png" src="../../media/matrixMultiply.png"/>
+  </media>
+  
+<caption>The "naïve" Matrix-Multiplication Algorithm
+  </caption></figure>
+
+<para id="eip-154">For each corresponding row and column, a <term target-id="dotProductDef">dot product</term> is formed as shown in Figure 2.</para>
+
+<figure id="dotProduct"><media id="dotproductPNG" alt="Dot-Product">
+    <image height="200" mime-type="image/png" src="../../media/dotProduct.png"/>
+  </media>
+  
+<caption>Matrix-Multiplication is composed of repeated dot-product operations
+  </caption></figure>
+
+
+<para id="eip-10">The <emphasis>naïve</emphasis> matrix-multiplication algorithm can be implemented as follows:</para><code id="eip-411" display="block">for i = 1 to n
+
+    for j = 1 to m
+
+        for k = 1 to m
+
+            C(i,j) = C(i,j) + A(i,k) * B(k,j)
+
+        end for
+
+    end for
+
+end for
+<caption>Naïve Matrix-Multiplication Implementation</caption></code><para id="eip-108">In the following exercises you will use the naïve matrix-multiplication implementation to experiment with various compiler optimization options, as well as "hand-coded" tuning, to deliver the best performance on this simple scientific kernel.</para></section>
+
+<section id="eip-341"><title>Compiler Optimization Flags</title><para id="eip-701"><title>Fortran90 Template</title>For this practical, use the template code <emphasis>matmul.f90</emphasis> provided in <emphasis>../Practicals/Practical_2/Fortran90</emphasis>
+</para><para id="eip-788"><title>C Template</title>For this practical, use the template code <emphasis>matmul.c</emphasis> provided in <emphasis>../Practicals/Practical_2/C</emphasis><newline count="2"/></para><exercise id="eip-325"><title>Compiler Flag Optimizations</title><problem id="eip-112">
+  <para id="eip-605">
+    Read the section on compiler optimization flags in the Cray compiler manpages i.e. 
+  </para>
+<code id="eip-id1163797556642" display="block"><title>Fortran Compiler Manpages</title>
+man crayftn (line 678)</code>
+<para id="eip-id5628526">or</para>
+<code id="eip-id1171900743809" display="block"><title>C Compiler Manpages</title>
+man craycc (line 509)</code>
+<note id="eip-id1168350245872"><label>Listing Optimizations</label>If you want to know what compiler optimization options are applied at levels <emphasis>-O0</emphasis>, <emphasis>-O1</emphasis>, <emphasis>-O2</emphasis> and <emphasis>-O3</emphasis> then compile your code with the additional option <emphasis>-eo</emphasis> e.g. <emphasis>ftn -O2 -eo -o foo foo.f90</emphasis></note>
+</problem></exercise><exercise id="eip-852"><title>Applying Optimization Flags</title><problem id="eip-683">
+  <para id="eip-284">Compile and execute a separate copy of the <emphasis>naïve</emphasis> matrix-multiplication implementation for each compiler optimization flag; -O0, -O1, -O2 and -O3. Record your observed timings in a table like the one shown in Table 2.<newline count="2"/>
+
+<note id="eip-id7214502" type="tip"><label>Timing Tip</label>Use the <emphasis>time</emphasis> utility in your batch script to request the elapsed time for each calculation. The timings reported by the <emphasis>time</emphasis> utility will be displayed in the standard error logfile e.g. jobOutput.e12345</note>
+<note id="eip-id4407833" type="tip"><label>Submission Tip</label>Request a maximum of 10 minutes for your batch jobs</note></para>
+<table id="fs-id1165025882304" summary="Timings Table for Matrix-Multiplication">
+<tgroup cols="2"><tbody>
+  <row>
+    <entry><emphasis>Optimization Flag</emphasis></entry>
+    <entry><emphasis>Wallclock Time (sec)</emphasis></entry>
+  </row>
+  <row>
+    <entry><space count="6"/>-O0</entry>
+    <entry/>
+  </row>
+  <row>
+    <entry><space count="6"/>-O1</entry>
+    <entry/>
+  </row>
+  <row>
+    <entry><space count="6"/>-O2</entry>
+    <entry/>
+  </row>
+  <row>
+    <entry><space count="6"/>-O3</entry>
+    <entry/>
+  </row>
+</tbody>
+
+</tgroup><caption>Timings Table for Matrix-Multiply Kernel</caption>
+</table>
+</problem>
+<solution id="eip-id1171087090748"><label>Follow-Up</label><para id="eip-id3939533">Are the results exactly the same for each flag?</para></solution></exercise><exercise id="eip-100"><title>Timing The Matrix-Multiplication Kernel</title><problem id="eip-221">
+  <para id="eip-531">By using the <emphasis>time</emphasis> utility to record the timing statistics for the entire code, we are including the overhead time it takes to populate the matrices <emphasis>A</emphasis> and <emphasis>B</emphasis> with initial values. For large matrices, this overhead time could be quite significant and hence skew the recorded time for the matrix-multiply kernel calculation.
+  </para>
+<para id="eip-id1171880975153">To ensure we are only recording the time for the matrix-multiplication kernel, we should wrap the matrix-multiply code block with source-level timing routines.</para>
+<para id="eip-id1171613152614">Using the language-level timing routines discussed earlier, record the time taken for the matrix-multiply kernel <emphasis>only</emphasis>. How do these times compare to the overall execution time?</para>
+<note id="eip-id8233355"><label>Testing Tip</label>Only record results for -O0 and -O2 compiler optimization flags</note> 
+</problem>
+
+<solution id="eip-769">
+<label>Fortran Solution</label>
+<code id="eip-id7509045" display="block">real :: t1,t2
+
+...MATRIX INITIALIZATION...
+
+call cpu_time(t1)
+
+! Perform the matrix-multiplication
+
+do I=1,N
+   do J=1,N
+      do K=1,N
+         C(I,J)=C(I,J)+A(I,K)*B(K,J)
+      end do
+   end do
+end do
+
+call cpu_time(t2)
+
+print *,"The time (in seconds) for the matrix-multiply kernel is ",t2-t1</code>
+</solution>
+
+<solution id="eip-id7511501">
+<label>C Solution</label>
+<code id="eip-id7511507" display="block">clock_t t1,t2;
+double elapsed;
+
+... MATRIX INITIALIZATION ...
+
+t1=clock();
+
+// Perform Matrix-Multiply Kernel
+
+for( i = 0; i &lt; n; i++ )
+  for( j = 0; j &lt; n; j++ )
+    for( k = 0; k &lt; n; k++ )
+       c[i][j] = c[i][j] + a[i][k] * b[k][j];
+
+t2=clock();
+elapsed=t2-t1;
+
+printf("The time (in seconds) for the matrix-multiply kernel is %f\n",elapsed/CLOCKS_PER_SEC);</code>
+</solution>
+</exercise></section><section id="eip-858"><title>"Hand-Tuned" Optimizations</title><para id="eip-682">Sometimes it is possible to generate further performance by manually applying optimizations to your source code instructions. In the following exercises you will gain some experience in hand-coding simple optimizations into the naïve matrix-multiply implementation.   
+</para><section id="eip-854"><title>Fortran90 Programmers Only</title><para id="eip-124">The element order in which 2D arrays are traversed can have a significant performance impact between Fortran and C languages. In C, 2D arrays are stored in memory using <term target-id="rowMajor">row-major</term> order. In Fortran, arrays are stored in memory using <term target-id="columnMajor">column-major</term> order.  
+</para><exercise id="eip-808"><title>Loop Re-ordering</title><problem id="eip-988">
+  <para id="eip-482">The naïve matrix-multiply Fortran90 implementation suffers in performance because its inner-most loops traverse array rows and not columns (this prevents the <term target-id="cache">cache</term> from being used efficiently). 
+  </para>
+<para id="eip-id1171882488980">Try to improve the performance of the Fortran90 implementation by maximizing column traversals. What performance gains do you achieve for <emphasis>-O0</emphasis> and <emphasis>-O2</emphasis> compiler flags? What order of indices I, J and K gives the best performance?</para>
+
+</problem>
+
+<solution id="eip-876">
+<label>Hint</label>
+  <para id="eip-269">Try to nest deeper the loop over <emphasis>I</emphasis>.</para>
+</solution>
+
+<solution id="eip-id1171904569240">
+<code id="eip-id14672520" display="block">! Perform the matrix-multiplication
+
+do K=1,N
+   do J=1,N
+      do I=1,N
+         C(I,J)=C(I,J)+A(I,K)*B(K,J)
+      end do
+   end do
+end do</code>
+</solution>
+</exercise><note id="eip-167" type="tip">Modern compilers are very good at detecting sub-optimal array traversals and will try to reorder the loops automatically to maximize performance.</note><para id="fs-id32587832"><newline count="2"/></para><exercise id="eip-60"><title>Loop Unrolling (Advanced)</title><problem id="eip-648">
+  <para id="eip-958">Manually unrolling loops can sometimes lead to performance gains by reducing the number of loop tests and code branching, at the expense of a larger code size. If the unrolled instructions are independent of each other, then they can also be executed in parallel. </para>
+<note id="eip-id1167807578196" type="Tip">Review loop unrolling by consulting the course slides <link document="m31999">here</link>.</note>
+<para id="eip-id21700469">Try to achieve performance improvement on the <emphasis>original</emphasis> naïve matrix-multiplication implementation by applying the loop unrolling technique. Compare your unrolled version against the results obtained with the <emphasis>-O0</emphasis> and <emphasis>-O2</emphasis> compiler flags.  </para>
+</problem>
+
+<solution id="eip-625">
+<label>Hint</label>
+  <para id="eip-929"><list id="eip-664" list-type="enumerated" number-style="arabic" class="stepwise"><item>Unroll the outer loop <emphasis>I</emphasis> 4 times</item>
+<item>Initialize 4 accumulating variables at the start of inner loop <emphasis>J</emphasis> e.g. C0, C1, C2 and C3</item>
+<item>Within the inner-most loop <emphasis>K</emphasis> do the following:
+<list id="eip-id1167362088679" list-type="enumerated" number-style="lower-roman"><item>Create a temporary variable equal to <emphasis>B(K,J)</emphasis></item>
+<item>Replace the matrix-multiply statement with 4 separate accumulators</item></list>
+</item>
+<item>After the inner-most loop is completed, update <emphasis>C</emphasis> with the accumulated totals.</item></list>
+  </para>
+</solution>
+
+<solution id="eip-id11925634">
+<label>Fortran90 Solution</label>
+<code id="eip-id12048835" display="block">! Perform the matrix-multiplication
+  
+do I=1,N,4
+   do J=1,N
+      C0=0.D0
+      C1=0.D0
+      C2=0.D0
+      C3=0.D0
+      do K=1,N
+         TEMP=B(K,J)
+         C0=C0+A(I,K)*TEMP
+         C1=C1+A(I+1,K)*TEMP
+         C2=C2+A(I+2,K)*TEMP
+         C3=C3+A(I+3,K)*TEMP
+      end do
+      C(I,J)=C(I,J)+C0
+      C(I+1,J)=C(I+1,J)+C1
+      C(I+2,J)=C(I+2,J)+C2
+      C(I+3,J)=C(I+3,J)+C3
+   end do
+end do
+</code>
+</solution>
+
+<solution id="eip-id3817030">
+<label>C Solution</label>
+<code id="eip-id4165015" display="block">// Perform Matrix-Multiply Kernel
+  
+for( i = 0; i &lt; n; i=i+4 )
+  { 
+    for( j = 0; j &lt; n; j++ )
+      {
+	c0=0;
+	c1=0;
+	c2=0;
+	c3=0;
+	  
+	for( k = 0; k &lt; n; k++ )
+	  {
+	      
+	    temp=b[k][j];
+            c0=c0+a[i][k]*temp;
+	    c1=c1+a[i+1][k]*temp;
+	    c2=c2+a[i+2][k]*temp;
+	    c3=c3+a[i+3][k]*temp;
+	  }
+	  
+	 c[i][j]=c[i][j]+c0;
+	 c[i+1][j]=c[i+1][j]+c1;
+	 c[i+2][j]=c[i+2][j]+c2;
+	 c[i+3][j]=c[i+3][j]+c3;
+	  
+      }
+  }
+</code>
+</solution>
+
+<commentary id="eip-id1165381469204">What performance improvement do you get when you unroll <emphasis>8</emphasis> times?</commentary></exercise></section>
+</section>
+</content>
+
+<glossary>
+
+<definition id="cache">
+<term>Cache</term>
+<meaning id="fs-id1165253572699"><para id="fs-id1165249116984">Area of high-speed memory that contains recently referenced memory addresses.
+</para>
+</meaning>
+</definition>
+
+<definition id="columnMajor">
+<term>Column-Major Ordering</term>
+<meaning id="fs-id17148400"><para id="fs-id17148401">Array elements are stored in memory as contiguous columns in the matrix. For best performance (and optimal cache use) elements should be traversed in column order.
+<figure id="fs-id9652374">
+<media id="fs-id7171498" alt="Column-Major Ordering">
+      <image height="150" mime-type="image/png" src="../../media/columnMajor.png"/>
+</media>
+<caption>Column-Major Ordering</caption></figure>
+</para>
+</meaning>
+</definition>
+
+<definition id="dotProductDef">
+<term>Dot Product</term>
+<meaning id="fs-id1169530103620"><para id="fs-id1169530091776">Also known as the scalar product, it is an operation which takes two vectors over the real numbers R and returns a real-valued scalar quantity. It is the standard inner product of the orthonormal Euclidean space.
+</para>
+</meaning>
+</definition>
+
+<definition id="hotspot">
+<term>Hotspot</term>
+<meaning id="fs-id1168109015583"><para id="fs-id1168109015584">A block of source code instructions that account for a significant amount of the CPU execution time.
+</para>
+</meaning>
+</definition>
+
+<definition id="kernel">
+<term>Kernel</term>
+<meaning id="fs-id1168109015598"><para id="fs-id1168109015599">A block of source code instructions that represent a particular algorithm or calculation.
+</para>
+</meaning>
+</definition>
+
+<definition id="openmpWtime">
+<term>omp_get_wtime()</term>
+<meaning id="fs-id12478384"><para id="fs-id15734339">
+<code id="fs-id16999540" display="block">
+use omp_lib
+
+DOUBLE PRECISION START, END
+
+START = omp_get_wtime()
+
+! ...HEAVY COMPUTATION...
+
+END = omp_get_wtime()
+
+PRINT *, 'That took ', &amp;
+   (END - START), ' seconds.'
+</code>
+</para>
+</meaning>
+</definition>
+
+<definition id="optimization">
+<term>Compiler Optimizations</term>
+<meaning id="eip-321"><para id="eip-432">Transformations to the source code which are applied by the compiler to improve the runtime performance of the executing code e.g. loop unrolling, instruction reordering, in-lining etc.
+</para>
+</meaning>
+</definition>
+
+<definition id="realtime">
+<term>Real Time</term>
+<meaning id="fs-id13704189"><para id="fs-id12182876">The elapsed time between the invocation of a program and its termination.
+</para>
+</meaning>
+</definition>
+
+<definition id="rowMajor">
+<term>Row-Major Ordering</term>
+<meaning id="fs-id17149726"><para id="fs-id17149727">Array elements are stored in memory as contiguous rows in the matrix. For best performance (and optimal cache use) elements should be traversed in row order.
+<figure id="fs-id3038684">
+<media id="fs-id9912224" alt="Row-Major Ordering">
+      <image height="150" mime-type="image/png" src="../../media/rowMajor.png"/>
+</media>
+<caption>Row-Major Ordering</caption></figure>
+</para>
+</meaning>
+</definition>
+
+</glossary>
+
+</document>

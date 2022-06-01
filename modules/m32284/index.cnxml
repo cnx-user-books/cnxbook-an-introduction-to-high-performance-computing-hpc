@@ -1,0 +1,220 @@
+<document xmlns="http://cnx.rice.edu/cnxml" xmlns:m="http://www.w3.org/1998/Math/MathML" xmlns:md="http://cnx.rice.edu/mdml">
+
+<title>Practical 4 - Basic OpenMP</title>
+<metadata>
+  <md:content-id>m32284</md:content-id><md:title>Practical 4 - Basic OpenMP</md:title>
+  <md:abstract>In this module you will gain some experience with the fundamentals of the OpenMP programming paradigm by executing some simple OpenMP codes in a series of simple exercises.</md:abstract>
+  <md:uuid>cfb4338a-1a00-427b-bce7-44ac7ca5a0be</md:uuid>
+</metadata>
+
+<content>
+  <section id="eip-387"><title>Introduction</title><para id="eip-547">In this practical you will develop and execute some simple codes, which incorporate the most fundamental OpenMP directives. Exercises include the querying of OpenMP threads for a trivial OpenMP code, to the calculation of <term target-id="speedup">speedup</term> for computing <emphasis>pi</emphasis> in parallel. <newline count="2"/>If you require any assistance, please do not hesitate to contact the available support staff.
+<newline count="2"/>
+<note id="eip-id1170006429472"><label>Disclaimer</label>This course (and accompanying practical exercises) are not designed to teach you OpenMP programming but are provided to give you a feel for the OpenMP programming paradigm. A detailed introduction to OpenMP will be given in further courses that are under development.</note>
+</para><section id="eip-922"><title>Objectives</title><para id="eip-611">The objectives of this practical are to gain experience in:
+</para><list id="eip-365" list-type="enumerated" number-style="lower-roman"><item>executing an OpenMP code with different thread counts</item>
+<item>using basic OpenMP directives to query the <emphasis>threads</emphasis> of an OpenMP program</item>
+<item>calculating <emphasis>speedup</emphasis> for a simple OpenMP program</item></list></section></section><section id="eip-184"><title>OpenMP: A Crash Course</title><para id="eip-95">OpenMP is a portable <term target-id="thread">thread-based</term> programming model, whereby a single thread of execution (referred to as the <emphasis>initial thread</emphasis>) can spawn (or fork) additional threads to perform work in parallel. Ideally each thread of execution is mapped onto an individual processing core for maximum performance. Each thread (within a <term target-id="threadTeam">thread team</term>) is uniquely identified by its <term target-id="id">thread ID</term> and individual threads can communicate with each other through <emphasis>shared memory</emphasis> resources.
+</para><note id="eip-693" type="note"><label>OpenMP Note</label>OpenMP is not a programming language but rather is a specification that enables shared-memory parallelism, in base languages such as Fortran and C, through the following components:
+<list id="eip-id1172433422197" list-type="enumerated" number-style="arabic"><item>Compiler Directives</item>
+<item>Runtime Library Routines</item>
+<item>Environment Variables</item></list></note><para id="eip-732">Figure 1 shows a typical OpenMP thread-based execution whereby the initial thread creates a <term target-id="parallelRegion">parallel region</term> to perform some work in parallel. Within the parallel region a team of <emphasis>n+1</emphasis> threads are forked (spawned) and assigned individual tasks to complete. After the final task is complete, the threads are synchronised (joined) and serial execution continues with the initial thread.</para><figure id="MPI"><media id="openmpPNG" alt="OpenMP Fork-Join Model">
+    <image height="350" mime-type="image/jpeg" src="../../media/openMP.png"/>
+  </media>
+  
+<caption>The OpenMP Programming Model
+  </caption></figure><para id="eip-156">The most fundamental OpenMP operations can be classified into three (3) groups: </para><list id="eip-273" list-type="enumerated" number-style="arabic"><item>Invoking a Parallel Region
+<para id="eip-id1171522166695"><code id="eip-id43268252" display="block"><title>Fortran Example</title>
+!$omp parallel private(var1,var2,...),shared(var1,var2,...)
+... code block ...
+!$omp end parallel</code>
+<code id="eip-id8620451" display="block"><title>C Example</title>
+#pragma omp parallel private(var1,var2,...),shared(var1,var2,...)
+{
+... code block ...
+}</code><note id="eip-id6059671"><label>Private and Shared Variables</label>Variables that are in scope at the invocation of a parallel region must be declared either <emphasis>private</emphasis> or <emphasis>shared</emphasis> within the ensuing parallel region. If a variable is designated as <emphasis>private</emphasis>, then all threads within the parallel region will create an individual instance of the variable, and can modify it without any conflict from other threads. A variable that is designated as <emphasis>shared</emphasis> remains shared among all threads, and needs to be accessed carefully to avoid race conditions.    </note></para></item>
+<item>Querying Thread ID and Team Size (within the current parallel region)<para id="eip-id1170035143393"><code id="eip-id1170033676228" display="block"><title>Fortran Examples</title>integer :: id, threads
+
+id=OMP_GET_THREAD_NUM() ! returns ID of this thread
+threads=OMP_GET_NUM_THREADS() ! returns the number of threads in parallel region</code>
+<code id="eip-id1170033613863" display="block"><title>C Examples</title>int id, threads;
+
+id=OMP_GET_THREAD_NUM(); // returns ID of this thread
+threads=OMP_GET_NUM_THREADS(); // returns the number of threads in parallel region
+</code></para></item>
+<item>Loop-level Parallelism (splitting loop iterations over threads)<para id="eip-id7583830"><code id="eip-id6398683" display="block"><title>Fortran Example</title>
+!$omp parallel do private(var1,...),shared(var1,...)
+... do loop ...
+!$omp end parallel do
+</code>
+<code id="eip-id7771280" display="block"><title>C Example</title>
+#pragma omp parallel for private(var1,...),shared(var1,...)
+... for loop ...
+</code></para></item></list><note id="eip-385">For more detailed information on the OpenMP standard, download and review the latest OpenMP <link resource="openmp3_spec.pdf">specification</link>.</note></section><section id="eip-305"><title>Basic OpenMP: "Hello World"</title><exercise id="eip-336"><title>Executing A Simple OpenMP Code</title><problem id="eip-676">
+  <para id="eip-173">Develop, compile and execute a code (which uses the OpenMP framework) to display a "Hello World" message on multiple threads. Test your OpenMP code works correctly for 1 and 2 threads.
+<note id="eip-id1170714766181"><label>Code Tip</label>If you are not brave enough (yet) to write the code, you can use the OpenMP template provided in the <emphasis>../Practicals/Practical_4/Exercise_1</emphasis> folder.</note><note id="eip-id17196077"><label>Batch Script Tip</label>Make sure you modify your submission script to request multiple threads in your job e.g. to test your code for 2 threads modify your script to contain the following:
+<code id="eip-id17060717" display="block">...
+#PBS -l mppwidth=1        # Request 1 process
+#PBS -l mppnppn=1         # Request 1 process per node
+#PBS -l mppdepth=2        # Request 2 threads per process
+...
+...
+export OMP_NUM_THREADS=2
+aprun -n 1 -N 1 -d 2 ./hello_world  # Execute code with 1 process and 2 threads</code></note>
+<note id="eip-id14832685"><label>OpenMP Tip</label>For each execution, you need to set the <emphasis>OMP_NUM_THREADS</emphasis> environment variable to the default number of threads for each parallel region in your code. </note>
+<note id="eip-id1170031829851"><label>aprun Tip</label>To notify aprun that you require multiple threads per process, you need to set the <emphasis>-d</emphasis> option e.g. to request 4 threads per process you should use <code id="eip-id1171511339832" display="block">aprun -n 1 -N 1 -d 4 ./foo</code>
+For more information see <emphasis>man aprun</emphasis></note></para>
+</problem></exercise><exercise id="eip-354"><title>Querying Thread ID and Team Size </title><problem id="eip-235">
+  <para id="eip-69">Modify your solution in Exercise 1 to print the "Hello World" message, along with the ID of the current thread and the total number of threads in the current thread team. 
+  </para>
+</problem>
+
+<solution id="eip-945">
+<label>Hint</label>
+  <para id="eip-848">Use the <emphasis>OMP_GET_THREAD_NUM()</emphasis> and <emphasis>OMP_GET_NUM_THREADS()</emphasis> runtime routines to find the ID of the current thread and the size of the thread team, respectively.
+  </para>
+</solution>
+
+<solution id="eip-id11020461">
+<label>Fortran Solution</label>
+<code id="eip-id18208480" display="block">...
+integer :: id, threads
+
+!$OMP PARALLEL private(id,threads)
+
+id=OMP_GET_THREAD_NUM()
+threads=OMP_GET_NUM_THREADS()
+
+print *,"Hello World from thread ",id," of ",threads
+
+!$OMP END PARALLEL
+... 
+</code>
+</solution>
+<solution id="fs-id4080789">
+<label>C Solution</label>
+<code id="fs-id13776026" display="block">...
+int id,threads;
+
+#pragma omp parallel private(id,threads)
+{
+  id=omp_get_thread_num();
+  threads=omp_get_num_threads();
+
+  printf("Hello World from thread %d of %d\n",id,threads);
+}
+... 
+</code>
+</solution>
+</exercise></section><section id="eip-388"><title>Measuring Speedup</title><para id="eip-704">In parallel computing, <term target-id="speedup">speedup</term> refers to how much a parallel algorithm is faster than a corresponding sequential algorithm. <newline count="2"/>Speedup is defined as:<newline count="2"/>
+<space count="40"/><m:math>
+<m:apply>
+  <m:eq/>
+  <m:ci>
+    <m:msub>
+      <m:mi>S</m:mi>
+      <m:mi>p</m:mi>
+    </m:msub>
+  </m:ci>
+  <m:apply>
+    <m:divide/>
+    <m:ci>
+      <m:msub>
+        <m:mi>T</m:mi>
+        <m:mi>1</m:mi>
+      </m:msub>
+    </m:ci>
+    <m:ci>
+      <m:msub>
+        <m:mi>T</m:mi>
+        <m:mi>p</m:mi>
+      </m:msub>
+    </m:ci>
+  </m:apply>
+</m:apply>
+</m:math></para><para id="eip-479">where</para><list id="eip-687"><item><emphasis>p</emphasis> is the number of processers</item>
+<item><emphasis><m:math>
+<m:ci>
+  <m:msub>
+    <m:mi>T</m:mi>
+    <m:mi>1</m:mi>
+  </m:msub>
+</m:ci>
+</m:math></emphasis> is the time of the sequential algorithm</item>
+<item><emphasis><m:math>
+<m:ci>
+  <m:msub>
+    <m:mi>T</m:mi>
+    <m:mi>p</m:mi>
+  </m:msub>
+</m:ci>
+</m:math></emphasis> is the time of the parallel algorithm with <emphasis>p</emphasis> processors</item></list><exercise id="eip-747"><title>Calculating PI</title><problem id="eip-159">
+  <para id="eip-145">The value of <emphasis>pi</emphasis> can be computed approximately using an integration technique (see the course <link resource="HPC_Intro.pdf">slides</link> for more information). Using the serial and OpenMP code implementations found in ../Practicals/Practical_4/Exercise_2, calculate the speedup obtained for 1 and 2 threads.
+<note id="eip-id5001162"><label>Tip</label>Briefly review the serial and parallel code implementations so you are familiar with the computational method and its OpenMP parallelisaton.</note></para>
+<para id="eip-id1167077468273">Record your results in a table similar to Table 1.</para>
+</problem>
+</exercise><table id="eip-491" summary="Table of Speedup Results for π Calculation">
+<tgroup cols="3"><tbody>
+  <row>
+    <entry>Threads</entry>
+    <entry>Time Taken(sec)</entry>
+    <entry>Speedup</entry>
+  </row>
+  <row>
+    <entry><space count="3"/>1</entry>
+    <entry/>
+    <entry/>
+  </row>
+  <row>
+    <entry><space count="3"/>2</entry>
+    <entry/>
+    <entry/>
+  </row>
+</tbody>
+
+
+</tgroup><caption>Speedup Results for PI Calculation</caption>
+</table></section>
+</content>
+
+<glossary>
+
+<definition id="parallelRegion">
+<term>Parallel Region</term>
+<meaning id="fs-id1171539567107"><para id="fs-id1171546864543">Within the OpenMP specification, a <emphasis>parallel region</emphasis> encapsulates a block of instructions which will be executed by a team of threads.</para>
+</meaning>
+<seealso><term>Thread Team</term></seealso>
+</definition>
+
+<definition id="speedup">
+<term>Speedup</term>
+<meaning id="fs-id7366140"><para id="fs-id16462636">In parallel computing, <emphasis>speedup</emphasis> refers to how much a parallel algorithm is faster than a corresponding sequential algorithm.</para>
+<figure id="speedupFig">
+<media id="speedupPhoto" alt="Speedup Diagram">
+      <image width="300" mime-type="image/png" src="../../media/Speedup.png"/>
+</media>
+<caption>Speedup Diagram</caption></figure>
+</meaning>
+</definition>
+
+<definition id="thread">
+<term>Thread-Based</term>
+<meaning id="fs-id7358009"><para id="fs-id8695901">A programming model whereby work is carried out in parallel using concurrent threads of execution.</para>
+</meaning>
+</definition>
+
+<definition id="id">
+<term>Thread ID</term>
+<meaning id="fs-id8393386"><para id="fs-id1169186223372">Each thread within a team of <emphasis>T</emphasis> threads is uniquely identified by an ID in the range <emphasis>0..(T-1)</emphasis></para>
+</meaning>
+</definition>
+
+<definition id="threadTeam">
+<term>Thread Team</term>
+<meaning id="fs-id1169189036416"><para id="fs-id1169187473452">A group of threads (including the initial thread that spawned the team) which can work in parallel on some task.</para>
+</meaning>
+</definition>
+
+</glossary>
+
+</document>
